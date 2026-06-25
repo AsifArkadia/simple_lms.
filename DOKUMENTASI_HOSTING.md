@@ -67,17 +67,54 @@ DATABASES = {
 ## 1.3 `Procfile` (file baru)
 
 ```
-release: python manage.py migrate --noinput && python manage.py collectstatic --noinput
+release: python manage.py migrate --noinput && python manage.py collectstatic --noinput && (test -f jwt-signing.pem || python manage.py make_jwt_key) && python manage.py ensure_superuser
 web: gunicorn config.wsgi --bind 0.0.0.0:$PORT
 ```
-- `release` dijalankan otomatis oleh Railway setiap deploy (migrasi DB + kumpulkan static file)
+- `release` dijalankan otomatis oleh Railway setiap deploy: migrasi DB, kumpulkan static file, generate JWT key kalau belum ada, dan buat superuser dari env var kalau belum ada
 - `web` adalah command utama menjalankan aplikasi
 
-## 1.4 `.gitignore` (diubah)
+## 1.4 `lms/management/commands/ensure_superuser.py` (file baru)
+
+Command custom yang membaca env var `DJANGO_SUPERUSER_USERNAME`/`PASSWORD`/`EMAIL`, lalu membuat superuser **hanya jika belum ada** (idempotent — aman dipanggil di `release` setiap deploy tanpa duplikat/error). Tujuannya: supaya superuser bisa dibuat otomatis tanpa perlu akses shell/CLI Railway.
+
+```python
+import os
+
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = (
+        "Membuat superuser dari environment variable DJANGO_SUPERUSER_USERNAME/"
+        "PASSWORD/EMAIL jika belum ada. Aman dijalankan berulang kali (idempotent),"
+        " jadi cocok dipanggil otomatis setiap deploy."
+    )
+
+    def handle(self, *args, **options):
+        username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
+        password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+        email = os.environ.get('DJANGO_SUPERUSER_EMAIL', '')
+
+        if not username or not password:
+            self.stdout.write('DJANGO_SUPERUSER_USERNAME/PASSWORD tidak di-set, dilewati.')
+            return
+
+        if User.objects.filter(username=username).exists():
+            self.stdout.write(f'Superuser "{username}" sudah ada, dilewati.')
+            return
+
+        User.objects.create_superuser(username=username, password=password, email=email)
+        self.stdout.write(self.style.SUCCESS(f'Superuser "{username}" berhasil dibuat.'))
+```
+
+Sudah diuji lokal: tanpa env var → dilewati; dengan env var → superuser terbuat; dijalankan ulang → dilewati (tidak duplikat).
+
+## 1.5 `.gitignore` (diubah)
 
 Ditambahkan `staticfiles/`, `.env`, dan `.claude/` (folder lokal tooling) agar tidak ikut commit.
 
-## 1.5 Git repository
+## 1.6 Git repository
 
 Project ini sebelumnya **belum jadi git repo**. Sudah dijalankan:
 ```bash
@@ -118,32 +155,28 @@ Saat ini ada **1 commit awal** di branch `master`, belum terhubung ke remote/Git
 2. **New Project** → **Deploy from GitHub repo** → pilih repo `simple-lms`.
 3. Railway akan otomatis mendeteksi `requirements.txt` & `Procfile` (lewat Nixpacks) dan mulai build.
 
-## Langkah 3 — Set Environment Variables
-Di tab **Variables** project Railway, tambahkan:
+## Langkah 3 — Generate Domain (lakukan dulu, sebelum isi Variables)
+Di tab **Settings → Networking**, klik **Generate Domain** untuk mendapat URL publik, contoh `simple-lms.up.railway.app`. Catat domain ini untuk dipakai di Langkah 4.
+
+## Langkah 4 — Set Environment Variables
+Di tab **Variables** project Railway, tambahkan satu-satu (klik **New Variable**):
 
 | Key | Value |
 |---|---|
-| `SECRET_KEY` | string acak panjang, contoh hasil `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `SECRET_KEY` | `VYNZUqXSf1O5GMqj-z7iCv8-hf0qJlu7u_Gh085p0QrvM-XsP1DPPCAoJ_UW-5xMtTI` (sudah digenerate, siap pakai — atau generate sendiri pakai `python -c "import secrets; print(secrets.token_urlsafe(50))"`) |
 | `DEBUG` | `False` |
-| `ALLOWED_HOSTS` | domain yang diberikan Railway, contoh `simple-lms.up.railway.app` (lihat di tab **Settings → Networking** setelah domain ter-generate) |
+| `ALLOWED_HOSTS` | domain dari Langkah 3, contoh `simple-lms.up.railway.app` |
+| `DJANGO_SUPERUSER_USERNAME` | username admin yang Anda inginkan, contoh `admin` |
+| `DJANGO_SUPERUSER_PASSWORD` | password admin (buat yang kuat, ini akan jadi login produksi) |
+| `DJANGO_SUPERUSER_EMAIL` | email apa saja, contoh `admin@example.com` |
 
-## Langkah 4 — Generate Domain
-Di tab **Settings → Networking**, klik **Generate Domain** untuk mendapat URL publik (`https://....up.railway.app`). Masukkan domain ini ke `ALLOWED_HOSTS` (Langkah 3), lalu redeploy.
+Setelah semua variable disimpan, Railway otomatis **redeploy**.
 
-## Langkah 5 — Generate JWT Signing Key
-File `jwt-signing.pem`/`.pub` sengaja tidak ikut di-commit (rahasia). Setelah deploy pertama berhasil, generate lewat shell Railway:
-1. Buka tab **Deployments** → klik deployment aktif → **View Logs** / gunakan **Railway CLI**:
-   ```bash
-   railway run python manage.py make_jwt_key
-   ```
-   (jalankan dari komputer lokal yang sudah `railway login` & `railway link` ke project ini)
+> Tidak perlu install Railway CLI maupun jalankan command manual untuk JWT key & superuser — keduanya **otomatis dibuat saat deploy** lewat `Procfile` (lihat 1.3), karena:
+> - `(test -f jwt-signing.pem || python manage.py make_jwt_key)` → generate JWT key kalau belum ada
+> - `python manage.py ensure_superuser` → baca env var `DJANGO_SUPERUSER_*` di atas, buat superuser kalau belum ada (aman dijalankan berulang setiap deploy, tidak akan duplikat)
 
-## Langkah 6 — Buat Superuser
-```bash
-railway run python manage.py createsuperuser
-```
-
-## Langkah 7 — Verifikasi
+## Langkah 5 — Verifikasi
 - Buka `https://<domain-railway>/login/` → halaman login harus tampil.
 - Login dengan superuser yang baru dibuat → dashboard admin harus tampil dengan data kosong/awal.
 - Buka `https://<domain-railway>/api/v1/docs` → Swagger harus tampil.
@@ -157,6 +190,7 @@ railway run python manage.py createsuperuser
 |---|---|
 | `requirements.txt` | Diubah — `+ gunicorn`, `+ whitenoise`, `+ dj-database-url` |
 | `config/settings.py` | Diubah — env var untuk `SECRET_KEY`/`DEBUG`/`ALLOWED_HOSTS`, WhiteNoise, `STORAGES`, `DATABASES` via `dj_database_url` |
-| `Procfile` | **Baru** |
+| `Procfile` | **Baru** — auto migrate, collectstatic, generate JWT key, ensure superuser |
+| `lms/management/commands/ensure_superuser.py` | **Baru** |
 | `.gitignore` | Diubah — `+ staticfiles/`, `+ .env`, `+ .claude/` |
-| Git repository | **Baru** — `git init` + 1 commit awal (belum push ke GitHub) |
+| Git repository | **Baru** — `git init` + commit (belum push ke GitHub) |
