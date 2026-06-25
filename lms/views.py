@@ -116,6 +116,44 @@ def hapus_krs(request, id):
 
 
 # =========================
+# MATERI & KOMENTAR (MAHASISWA)
+# =========================
+@login_required
+def materi_view(request):
+    members = Member.objects.filter(user=request.user).select_related('course')
+
+    courses_data = []
+    for member in members:
+        contents = Content.objects.filter(course=member.course)
+        content_data = []
+        for content in contents:
+            comments = content.comment_set.select_related('member__user').order_by('id')
+            content_data.append({'content': content, 'comments': comments})
+
+        courses_data.append({'course': member.course, 'contents': content_data})
+
+    return render(request, 'materi.html', {'courses_data': courses_data})
+
+
+@login_required
+def tambah_komentar(request, content_id):
+    content = get_object_or_404(Content, id=content_id)
+    member = Member.objects.filter(user=request.user, course=content.course).first()
+
+    if not member:
+        messages.error(request, "Anda belum mengikuti course materi ini.")
+        return redirect('materi')
+
+    if request.method == 'POST':
+        text = request.POST.get('text', '').strip()
+        if text:
+            Comment.objects.create(member=member, content=content, text=text)
+            messages.success(request, "Komentar berhasil ditambahkan!")
+
+    return redirect('materi')
+
+
+# =========================
 # COURSE (ADMIN ONLY)
 # =========================
 @login_required

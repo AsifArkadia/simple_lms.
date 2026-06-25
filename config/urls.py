@@ -70,4 +70,10 @@ urlpatterns = [
     path('krs/', login_required(krs_view), name='krs'),
     path('krs/ambil/<int:id>/', login_required(ambil_course), name='ambil_course'),
     path('krs/hapus/<int:id>/', login_required(hapus_krs), name='hapus_krs'),
+
+    # =========================
+    # MATERI & KOMENTAR (MAHASISWA)
+    # =========================
+    path('materi/', login_required(materi_view), name='materi'),
+    path('materi/komentar/<int:content_id>/', login_required(tambah_komentar), name='tambah_komentar'),
 ]
