@@ -38,6 +38,15 @@ ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
 
+# Railway/Heroku-style host menggunakan reverse proxy HTTPS -> HTTP ke container.
+# Tanpa ini, Django mengira request datang via HTTP biasa sehingga CSRF check
+# (yang membandingkan skema https pada Referer/Origin) selalu gagal (403).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Domain yang dipercaya untuk submit form (CSRF). Otomatis dari ALLOWED_HOSTS,
+# tidak perlu env var terpisah.
+CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS]
+
 
 # Application definition
 
