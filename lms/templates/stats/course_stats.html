@@ -1,0 +1,167 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Course Statistics · LMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'lms/css/admin.css' %}" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark lms-navbar shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand"><i class="bi bi-mortarboard-fill"></i>LMS Admin</span>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    </div>
+</nav>
+
+<div class="container mt-4 mb-5">
+
+    <div class="mb-4">
+        <h3 class="lms-page-title"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Course Statistics</h3>
+        <p class="lms-page-subtitle mb-0">Ringkasan jumlah member, konten, dan komentar di setiap course</p>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-3">
+            <div class="lms-stat">
+                <div class="lms-stat-icon"><i class="bi bi-collection-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Total Course</div>
+                    <div class="lms-stat-value">{{ summary.total_courses }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="lms-stat is-success">
+                <div class="lms-stat-icon"><i class="bi bi-arrow-up-circle-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Max Member / Course</div>
+                    <div class="lms-stat-value">{{ summary.max_members }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="lms-stat is-warning">
+                <div class="lms-stat-icon"><i class="bi bi-arrow-down-circle-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Min Member / Course</div>
+                    <div class="lms-stat-value">{{ summary.min_members }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="lms-stat is-info">
+                <div class="lms-stat-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Avg Member / Course</div>
+                    <div class="lms-stat-value">{{ summary.avg_members|floatformat:1 }}</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- HIGHLIGHT -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="lms-card h-100">
+                <div class="lms-card-header"><i class="bi bi-trophy-fill text-warning me-2"></i>Course Terpopuler</div>
+                <div class="card-body">
+                    {% if most_popular %}
+                        <h5 class="fw-semibold mb-1">{{ most_popular.title }}</h5>
+                        <p class="lms-page-subtitle mb-0">{{ most_popular.num_members }} member &middot; {{ most_popular.num_contents }} konten &middot; {{ most_popular.num_comments }} komentar</p>
+                    {% else %}
+                        <p class="lms-page-subtitle mb-0">Belum ada data</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="lms-card h-100">
+                <div class="lms-card-header"><i class="bi bi-graph-down text-secondary me-2"></i>Course Paling Sepi</div>
+                <div class="card-body">
+                    {% if least_popular %}
+                        <h5 class="fw-semibold mb-1">{{ least_popular.title }}</h5>
+                        <p class="lms-page-subtitle mb-0">{{ least_popular.num_members }} member &middot; {{ least_popular.num_contents }} konten &middot; {{ least_popular.num_comments }} komentar</p>
+                    {% else %}
+                        <p class="lms-page-subtitle mb-0">Belum ada data</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="lms-card mb-4">
+        <div class="lms-card-header"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Jumlah Member per Course</div>
+        <div class="card-body">
+            <canvas id="courseChart" height="90"></canvas>
+        </div>
+    </div>
+
+    <!-- DETAIL TABLE -->
+    <div class="lms-card">
+        <div class="lms-card-header"><i class="bi bi-table text-primary me-2"></i>Detail per Course</div>
+        <div class="card-body p-0">
+            <table class="table lms-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Course</th>
+                        <th class="text-center">Jumlah Member</th>
+                        <th class="text-center">Jumlah Konten</th>
+                        <th class="text-center">Jumlah Komentar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in courses %}
+                    <tr>
+                        <td>{{ c.title }}</td>
+                        <td class="text-center">{{ c.num_members }}</td>
+                        <td class="text-center">{{ c.num_contents }}</td>
+                        <td class="text-center">{{ c.num_comments }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center lms-page-subtitle py-4">Belum ada course</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    const ctx = document.getElementById('courseChart');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [{% for c in courses %}"{{ c.title|escapejs }}",{% endfor %}],
+            datasets: [{
+                label: 'Jumlah Member',
+                data: [{% for c in courses %}{{ c.num_members }},{% endfor %}],
+                backgroundColor: '#4f46e5',
+                borderRadius: 6,
+                maxBarThickness: 36,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+</script>
+
+</body>
+</html>

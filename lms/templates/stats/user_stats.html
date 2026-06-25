@@ -1,0 +1,135 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Statistics · LMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'lms/css/admin.css' %}" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark lms-navbar shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand"><i class="bi bi-mortarboard-fill"></i>LMS Admin</span>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    </div>
+</nav>
+
+<div class="container mt-4 mb-5">
+
+    <div class="mb-4">
+        <h3 class="lms-page-title"><i class="bi bi-person-lines-fill text-primary me-2"></i>User Statistics</h3>
+        <p class="lms-page-subtitle mb-0">Ringkasan jumlah course yang diikuti tiap user</p>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-4">
+            <div class="lms-stat">
+                <div class="lms-stat-icon"><i class="bi bi-people-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Total User (non-admin)</div>
+                    <div class="lms-stat-value">{{ summary.total_users }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="lms-stat is-success">
+                <div class="lms-stat-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">Rata-rata Course / User</div>
+                    <div class="lms-stat-value">{{ summary.avg_courses|floatformat:1 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="lms-stat is-warning">
+                <div class="lms-stat-icon"><i class="bi bi-person-dash-fill"></i></div>
+                <div>
+                    <div class="lms-stat-label">User Tanpa Course</div>
+                    <div class="lms-stat-value">{{ users_without_course|length }}</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- HIGHLIGHT -->
+    <div class="lms-card mb-4">
+        <div class="lms-card-header"><i class="bi bi-trophy-fill text-warning me-2"></i>User dengan Course Terbanyak</div>
+        <div class="card-body">
+            {% if top_user %}
+                <h5 class="fw-semibold mb-1">{{ top_user.username }}</h5>
+                <p class="lms-page-subtitle mb-0">Mengikuti {{ top_user.num_courses }} course</p>
+            {% else %}
+                <p class="lms-page-subtitle mb-0">Belum ada data</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="lms-card mb-4">
+        <div class="lms-card-header"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Jumlah Course per User</div>
+        <div class="card-body">
+            <canvas id="userChart" height="90"></canvas>
+        </div>
+    </div>
+
+    <!-- DETAIL TABLE -->
+    <div class="lms-card">
+        <div class="lms-card-header"><i class="bi bi-table text-primary me-2"></i>Detail per User</div>
+        <div class="card-body p-0">
+            <table class="table lms-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th class="text-center">Jumlah Course Diikuti</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.username }}</td>
+                        <td class="text-center"><span class="badge rounded-pill text-bg-primary">{{ u.num_courses }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center lms-page-subtitle py-4">Belum ada user</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    const ctx = document.getElementById('userChart');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [{% for u in users %}"{{ u.username|escapejs }}",{% endfor %}],
+            datasets: [{
+                label: 'Jumlah Course',
+                data: [{% for u in users %}{{ u.num_courses }},{% endfor %}],
+                backgroundColor: '#16a34a',
+                borderRadius: 6,
+                maxBarThickness: 36,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+</script>
+
+</body>
+</html>

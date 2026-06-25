@@ -1,0 +1,17 @@
+# JWT signing keys (django-ninja-simple-jwt) - jangan commit, bersifat secret
+jwt-signing.pem
+jwt-signing.pub
+
+# Python
+__pycache__/
+*.pyc
+
+# Django
+db.sqlite3
+staticfiles/
+
+# Environment variables (jangan commit, bersifat secret)
+.env
+
+# Editor / tooling lokal
+.claude/

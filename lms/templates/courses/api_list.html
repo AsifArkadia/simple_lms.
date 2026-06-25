@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Courses API (v1)</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f4f6f9;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
+    <div class="container-fluid">
+        <span class="navbar-brand">📚 Courses API (v1)</span>
+        <a href="/" class="btn btn-secondary btn-sm">Dashboard</a>
+    </div>
+</nav>
+
+<div class="container mt-4">
+
+    <!-- TITLE -->
+    <div class="mb-4">
+        <h3 class="fw-bold">Daftar Courses (API v1)</h3>
+        <p class="text-muted">
+            Endpoint <code>/api/v1/courses/</code> butuh JWT. Login dulu lewat
+            <a href="/api/v1/docs" target="_blank">/api/v1/docs</a> (auth/sign-in),
+            lalu tempel nilai <code>access</code> ke kolom Access Token di bawah.
+        </p>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="token" class="form-label">Access Token (JWT)</label>
+                    <input type="text" id="token" class="form-control" placeholder="Tempel access token di sini">
+                </div>
+                <div class="col-md-3">
+                    <label for="search" class="form-label">Cari Course</label>
+                    <input type="text" id="search" class="form-control" placeholder="Nama / deskripsi...">
+                </div>
+                <div class="col-md-3">
+                    <label for="sort" class="form-label">Urutkan</label>
+                    <select id="sort" class="form-select">
+                        <option value="">Default</option>
+                        <option value="id">ID (naik)</option>
+                        <option value="-id">ID (turun)</option>
+                        <option value="title">Judul (A-Z)</option>
+                        <option value="-title">Judul (Z-A)</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button id="btnSearch" class="btn btn-primary w-100">Cari</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO / ERROR -->
+    <div id="info" class="alert d-none"></div>
+
+    <!-- TABLE -->
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            📊 Data Courses
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered table-striped align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nama Course</th>
+                        <th>Deskripsi</th>
+                        <th class="text-center">Jumlah Member</th>
+                        <th class="text-center">Jumlah Konten</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+
+            <ul class="pagination justify-content-center mb-0" id="pagination"></ul>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const PAGE_SIZE = 5;
+    let currentPage = 1;
+
+    const tokenInput = document.getElementById('token');
+    const searchInput = document.getElementById('search');
+    const sortSelect = document.getElementById('sort');
+    const tbody = document.getElementById('tbody');
+    const pagination = document.getElementById('pagination');
+    const info = document.getElementById('info');
+
+    // simpan token di localStorage agar tidak perlu paste ulang setiap reload
+    tokenInput.value = localStorage.getItem('jwt_access') || '';
+    tokenInput.addEventListener('change', () => {
+        localStorage.setItem('jwt_access', tokenInput.value.trim());
+    });
+
+    function showInfo(message, type) {
+        if (!message) {
+            info.className = 'alert d-none';
+            info.textContent = '';
+            return;
+        }
+        info.className = `alert alert-${type}`;
+        info.textContent = message;
+    }
+
+    async function loadCourses(page = 1) {
+        currentPage = page;
+        showInfo('', null);
+
+        const params = new URLSearchParams();
+        params.set('page', page);
+        if (searchInput.value.trim()) {
+            params.set('search', searchInput.value.trim());
+        }
+        if (sortSelect.value) {
+            params.set('sort', sortSelect.value);
+        }
+
+        const res = await fetch(`/api/v1/courses/?${params.toString()}`, {
+            headers: {
+                'Authorization': `Bearer ${tokenInput.value.trim()}`,
+            },
+        });
+
+        if (res.status === 401) {
+            tbody.innerHTML = '';
+            pagination.innerHTML = '';
+            showInfo('Token tidak valid / kosong. Login dulu lewat /api/v1/docs.', 'danger');
+            return;
+        }
+
+        if (res.status === 429) {
+            showInfo('Too many requests. Coba lagi sebentar.', 'warning');
+            return;
+        }
+
+        const data = await res.json();
+        renderTable(data.items);
+        renderPagination(data.count);
+    }
+
+    function renderTable(items) {
+        tbody.innerHTML = '';
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Tidak ada data.</td></tr>';
+            return;
+        }
+        for (const c of items) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${c.id}</td>
+                <td>${c.title}</td>
+                <td>${c.description}</td>
+                <td class="text-center">${c.num_members}</td>
+                <td class="text-center">${c.num_contents}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    function renderPagination(total) {
+        pagination.innerHTML = '';
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        for (let p = 1; p <= totalPages; p++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (p === currentPage ? ' active' : '');
+
+            const btn = document.createElement('button');
+            btn.className = 'page-link';
+            btn.textContent = p;
+            btn.addEventListener('click', () => loadCourses(p));
+
+            li.appendChild(btn);
+            pagination.appendChild(li);
+        }
+    }
+
+    document.getElementById('btnSearch').addEventListener('click', () => loadCourses(1));
+    sortSelect.addEventListener('change', () => loadCourses(1));
+
+    loadCourses(1);
+</script>
+
+</body>
+</html>
