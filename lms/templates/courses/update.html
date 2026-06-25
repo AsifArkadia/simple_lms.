@@ -22,6 +22,11 @@
             <textarea name="description" class="form-control">{{ course.description }}</textarea>
         </div>
 
+        <div class="mb-3">
+            <label>Max Peserta (kosongkan jika tanpa batas)</label>
+            <input type="number" min="1" name="max_members" class="form-control" value="{{ course.max_members|default_if_none:'' }}">
+        </div>
+
         <button class="btn btn-warning">Update</button>
         <a href="/courses/" class="btn btn-secondary">Kembali</a>
     </form>

@@ -34,9 +34,10 @@ urlpatterns = [
     ), name='logout'),
 
     # =========================
-    # DASHBOARD (WAJIB LOGIN)
+    # DASHBOARD / LANDING PAGE
+    # (publik kalau belum login, dashboard kalau sudah login)
     # =========================
-    path('', login_required(dashboard), name='dashboard'),
+    path('', dashboard, name='dashboard'),
 
     # =========================
     # COURSES (ADMIN)

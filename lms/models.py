@@ -4,6 +4,10 @@ from django.contrib.auth.models import User
 class Course(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
+    max_members = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Kosongkan jika tanpa batas kuota peserta",
+    )
 
     def __str__(self):
         return self.title

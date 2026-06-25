@@ -13,13 +13,37 @@
         <a href="/" class="btn btn-light">⬅ Dashboard</a>
     </div>
 
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
     <div class="row">
         {% for course in courses %}
         <div class="col-md-4 mb-3">
             <div class="card bg-secondary p-3">
                 <h5>{{ course.title }}</h5>
                 <p>{{ course.description }}</p>
-                <a href="/krs/ambil/{{ course.id }}/" class="btn btn-info">Ambil</a>
+
+                {% if course.max_members %}
+                    {% if course.num_members >= course.max_members %}
+                        <span class="badge bg-danger mb-2">Kuota Penuh ({{ course.num_members }}/{{ course.max_members }})</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark mb-2">{{ course.num_members }}/{{ course.max_members }} terisi</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-light text-dark mb-2">Tanpa batas kuota</span>
+                {% endif %}
+
+                <br>
+                {% if course.max_members and course.num_members >= course.max_members %}
+                    <button class="btn btn-secondary" disabled>Kuota Penuh</button>
+                {% else %}
+                    <a href="/krs/ambil/{{ course.id }}/" class="btn btn-info">Ambil</a>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

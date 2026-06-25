@@ -1,5 +1,6 @@
 import csv
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Avg, Count, Max, Min
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -18,8 +19,12 @@ def admin_only(user):
 # =========================
 # DASHBOARD
 # =========================
-@login_required
 def dashboard(request):
+    # PUBLIK (belum login) - landing page
+    if not request.user.is_authenticated:
+        courses = Course.objects.annotate(num_members=Count('member', distinct=True))
+        return render(request, 'landing.html', {'courses': courses})
+
     if request.user.is_superuser:
         context = {
             'total_courses': Course.objects.count(),
@@ -84,7 +89,7 @@ def import_courses(request):
 # =========================
 @login_required
 def krs_view(request):
-    courses = Course.objects.all()
+    courses = Course.objects.annotate(num_members=Count('member', distinct=True))
     my_courses = Member.objects.filter(user=request.user)
 
     return render(request, 'krs.html', {
@@ -95,12 +100,18 @@ def krs_view(request):
 
 @login_required
 def ambil_course(request, id):
-    course = get_object_or_404(Course, id=id)
+    with transaction.atomic():
+        course = get_object_or_404(Course.objects.select_for_update(), id=id)
+        current_members = Member.objects.filter(course=course).count()
 
-    Member.objects.get_or_create(
-        user=request.user,
-        course=course
-    )
+        if course.max_members is not None and current_members >= course.max_members:
+            messages.error(request, "Maaf, kuota mata kuliah ini sudah penuh.")
+            return redirect('krs')
+
+        Member.objects.get_or_create(
+            user=request.user,
+            course=course
+        )
 
     messages.success(request, "Berhasil mengambil mata kuliah!")
     return redirect('krs')
@@ -159,7 +170,7 @@ def tambah_komentar(request, content_id):
 @login_required
 @user_passes_test(admin_only)
 def course_list(request):
-    courses = Course.objects.all()
+    courses = Course.objects.annotate(num_members=Count('member', distinct=True))
     return render(request, 'courses/list.html', {'courses': courses})
 
 
@@ -169,8 +180,9 @@ def course_create(request):
     if request.method == 'POST':
         title = request.POST.get('title')
         description = request.POST.get('description')
+        max_members = request.POST.get('max_members') or None
 
-        Course.objects.create(title=title, description=description)
+        Course.objects.create(title=title, description=description, max_members=max_members)
         messages.success(request, "Course berhasil ditambahkan!")
 
         return redirect('course_list')
@@ -186,6 +198,7 @@ def course_update(request, id):
     if request.method == 'POST':
         course.title = request.POST.get('title')
         course.description = request.POST.get('description')
+        course.max_members = request.POST.get('max_members') or None
         course.save()
 
         messages.success(request, "Course berhasil diupdate!")

@@ -2,6 +2,7 @@ import re
 from typing import List, Optional
 
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from ninja import Field, FilterSchema, NinjaAPI, Query, Schema
@@ -247,13 +248,19 @@ def getMyCourses(request):
     return result
 
 
-@apiv1.post('course/{id}/enroll/', auth=apiAuth, response=EnrollOut)
+@apiv1.post('course/{id}/enroll/', auth=apiAuth, response={200: EnrollOut, 400: MessageOut})
 def courseEnrollment(request, id: int):
-    """Mendaftarkan user yang login ke course tertentu (butuh JWT)."""
-    course = get_object_or_404(Course, pk=id)
-    member, _ = Member.objects.get_or_create(user_id=request.user.id, course=course)
+    """Mendaftarkan user yang login ke course tertentu (butuh JWT). Menolak jika kuota course sudah penuh."""
+    with transaction.atomic():
+        course = get_object_or_404(Course.objects.select_for_update(), pk=id)
+        current_members = Member.objects.filter(course=course).count()
 
-    return {
+        if course.max_members is not None and current_members >= course.max_members:
+            return 400, {"message": "Kuota course ini sudah penuh"}
+
+        member, _ = Member.objects.get_or_create(user_id=request.user.id, course=course)
+
+    return 200, {
         'id': member.id,
         'user_id': member.user_id,
         'course_id': member.course.id,
