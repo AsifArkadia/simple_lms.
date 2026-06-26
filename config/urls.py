@@ -50,6 +50,14 @@ urlpatterns = [
     path('courses/delete/<int:id>/', login_required(course_delete), name='course_delete'),
     path('courses/import/', login_required(import_courses), name='import_courses'),
     path('courses-api/', courses_api_demo, name='courses_api_demo'),
+
+    # =========================
+    # KELOLA KONTEN / MATERI (ADMIN)
+    # =========================
+    path('courses/<int:course_id>/contents/', login_required(course_content_list), name='course_content_list'),
+    path('courses/<int:course_id>/contents/create/', login_required(course_content_create), name='course_content_create'),
+    path('contents/update/<int:id>/', login_required(content_update), name='content_update'),
+    path('contents/delete/<int:id>/', login_required(content_delete), name='content_delete'),
     path('logout/', auth_views.LogoutView.as_view(next_page='/login/'), name='logout'),
 
     # =========================

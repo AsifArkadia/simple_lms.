@@ -1,4 +1,5 @@
 import csv
+import re
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.password_validation import validate_password
@@ -17,6 +18,19 @@ from .models import Course, Member, Content, Comment, Completion
 # =========================
 def admin_only(user):
     return user.is_superuser
+
+
+# =========================
+# YOUTUBE HELPER
+# =========================
+YOUTUBE_ID_PATTERN = re.compile(r'(?:v=|youtu\.be/|embed/)([\w-]{11})')
+
+
+def youtube_embed_url(url):
+    if not url:
+        return None
+    match = YOUTUBE_ID_PATTERN.search(url)
+    return f"https://www.youtube.com/embed/{match.group(1)}" if match else None
 
 
 # =========================
@@ -180,7 +194,11 @@ def materi_view(request):
         content_data = []
         for content in contents:
             comments = content.comment_set.select_related('member__user').order_by('id')
-            content_data.append({'content': content, 'comments': comments})
+            content_data.append({
+                'content': content,
+                'comments': comments,
+                'embed_url': youtube_embed_url(content.video_url),
+            })
 
         courses_data.append({'course': member.course, 'contents': content_data})
 
@@ -256,6 +274,63 @@ def course_delete(request, id):
 
     messages.success(request, "Course berhasil dihapus!")
     return redirect('course_list')
+
+
+# =========================
+# KELOLA KONTEN / MATERI (ADMIN ONLY)
+# =========================
+@login_required
+@user_passes_test(admin_only)
+def course_content_list(request, course_id):
+    course = get_object_or_404(Course, id=course_id)
+    contents = Content.objects.filter(course=course)
+    return render(request, 'courses/content_list.html', {'course': course, 'contents': contents})
+
+
+@login_required
+@user_passes_test(admin_only)
+def course_content_create(request, course_id):
+    course = get_object_or_404(Course, id=course_id)
+
+    if request.method == 'POST':
+        Content.objects.create(
+            course=course,
+            title=request.POST.get('title'),
+            body=request.POST.get('body'),
+            video_url=request.POST.get('video_url') or None,
+        )
+        messages.success(request, "Materi berhasil ditambahkan!")
+        return redirect('course_content_list', course_id=course.id)
+
+    return render(request, 'courses/content_create.html', {'course': course})
+
+
+@login_required
+@user_passes_test(admin_only)
+def content_update(request, id):
+    content = get_object_or_404(Content, id=id)
+
+    if request.method == 'POST':
+        content.title = request.POST.get('title')
+        content.body = request.POST.get('body')
+        content.video_url = request.POST.get('video_url') or None
+        content.save()
+
+        messages.success(request, "Materi berhasil diupdate!")
+        return redirect('course_content_list', course_id=content.course_id)
+
+    return render(request, 'courses/content_update.html', {'content': content})
+
+
+@login_required
+@user_passes_test(admin_only)
+def content_delete(request, id):
+    content = get_object_or_404(Content, id=id)
+    course_id = content.course_id
+    content.delete()
+
+    messages.success(request, "Materi berhasil dihapus!")
+    return redirect('course_content_list', course_id=course_id)
 
 
 # =========================

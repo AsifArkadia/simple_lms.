@@ -23,6 +23,13 @@ class Content(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
     body = models.TextField()
+    video_url = models.URLField(
+        blank=True, null=True,
+        help_text="Link video YouTube untuk materi ini (opsional)",
+    )
+
+    def __str__(self):
+        return self.title
 
 class Completion(models.Model):
     member = models.ForeignKey(Member, on_delete=models.CASCADE)

@@ -1,63 +1,108 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Materi Saya</title>
+    <title>Materi Saya · LMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'lms/css/admin.css' %}" rel="stylesheet">
+
+    <style>
+        .lms-video-wrap {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 1rem;
+        }
+
+        .lms-video-wrap iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .lms-comment-item {
+            background: var(--c-bg);
+            border-radius: 0.6rem;
+            padding: 0.6rem 0.9rem;
+        }
+    </style>
 </head>
-<body class="bg-dark text-white">
+<body>
 
-<div class="container mt-5 mb-5">
+<nav class="navbar navbar-expand-lg navbar-dark lms-navbar shadow-sm">
+    <div class="container">
+        <span class="navbar-brand"><i class="bi bi-mortarboard-fill"></i>Simple LMS</span>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+    </div>
+</nav>
 
-    <div class="d-flex justify-content-between mb-4">
-        <h2>📖 Materi Saya</h2>
-        <a href="/" class="btn btn-light">⬅ Dashboard</a>
+<div class="container mt-4 mb-5">
+
+    <div class="mb-4">
+        <h3 class="lms-page-title mb-0"><i class="bi bi-play-btn-fill text-primary me-2"></i>Materi Saya</h3>
+        <p class="lms-page-subtitle mb-0">Tonton video materi dan diskusi lewat komentar</p>
     </div>
 
     {% if messages %}
         {% for message in messages %}
-        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %}">
+        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} py-2">
             {{ message }}
         </div>
         {% endfor %}
     {% endif %}
 
     {% for cd in courses_data %}
-    <div class="card bg-secondary mb-4">
-        <div class="card-header">
-            <strong>{{ cd.course.title }}</strong>
+    <div class="lms-card mb-4">
+        <div class="lms-card-header">
+            <i class="bi bi-journal-bookmark-fill text-primary me-2"></i>{{ cd.course.title }}
         </div>
         <div class="card-body">
 
             {% for item in cd.contents %}
-            <div class="card bg-dark mb-3">
-                <div class="card-body">
-                    <h5>{{ item.content.title }}</h5>
-                    <p class="text-light">{{ item.content.body }}</p>
+            <div class="border rounded p-3 mb-3" style="border-color: var(--c-border) !important;">
+                <h5 class="mb-2">{{ item.content.title }}</h5>
 
-                    <hr>
-
-                    <h6 class="text-muted">💬 Komentar</h6>
-                    <ul class="list-group mb-3">
-                        {% for c in item.comments %}
-                        <li class="list-group-item bg-secondary text-white">
-                            <strong>{{ c.member.user.username }}</strong>: {{ c.text }}
-                        </li>
-                        {% empty %}
-                        <li class="list-group-item bg-secondary text-white text-muted">
-                            Belum ada komentar.
-                        </li>
-                        {% endfor %}
-                    </ul>
-
-                    <form action="{% url 'tambah_komentar' item.content.id %}" method="post" class="d-flex gap-2">
-                        {% csrf_token %}
-                        <input type="text" name="text" class="form-control" placeholder="Tulis komentar..." required>
-                        <button type="submit" class="btn btn-info">Kirim</button>
-                    </form>
+                {% if item.embed_url %}
+                <div class="lms-video-wrap">
+                    <iframe src="{{ item.embed_url }}" title="{{ item.content.title }}" allowfullscreen></iframe>
                 </div>
+                {% endif %}
+
+                {% if item.content.body %}
+                <p class="lms-page-subtitle">{{ item.content.body }}</p>
+                {% endif %}
+
+                <hr>
+
+                <h6 class="lms-page-subtitle small text-uppercase fw-semibold mb-2"><i class="bi bi-chat-square-text-fill me-1"></i>Komentar</h6>
+
+                <div class="d-flex flex-column gap-2 mb-3">
+                    {% for c in item.comments %}
+                    <div class="lms-comment-item">
+                        <strong>{{ c.member.user.username }}</strong>
+                        <span class="lms-page-subtitle">{{ c.text }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="lms-page-subtitle small mb-0">Belum ada komentar.</p>
+                    {% endfor %}
+                </div>
+
+                <form action="{% url 'tambah_komentar' item.content.id %}" method="post" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="text" name="text" class="form-control" placeholder="Tulis komentar..." required>
+                    <button type="submit" class="btn btn-lms-primary"><i class="bi bi-send-fill"></i></button>
+                </form>
             </div>
             {% empty %}
-            <p class="text-muted">Belum ada materi untuk course ini.</p>
+            <p class="lms-page-subtitle mb-0">Belum ada materi untuk course ini.</p>
             {% endfor %}
 
         </div>

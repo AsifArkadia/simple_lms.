@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Konten · {{ course.title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'lms/css/admin.css' %}" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark lms-navbar shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand"><i class="bi bi-mortarboard-fill"></i>LMS Admin</span>
+        <a href="{% url 'course_list' %}" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left me-1"></i>Courses</a>
+    </div>
+</nav>
+
+<div class="container mt-4 mb-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="lms-page-title mb-0"><i class="bi bi-play-btn-fill text-primary me-2"></i>Konten · {{ course.title }}</h3>
+            <p class="lms-page-subtitle mb-0">Kelola materi & link video YouTube untuk course ini</p>
+        </div>
+        <a href="{% url 'course_content_create' course.id %}" class="btn btn-lms-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Tambah Materi</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} py-2">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="lms-card">
+        <div class="card-body p-0">
+            <table class="table lms-table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">No</th>
+                        <th>Judul</th>
+                        <th style="width: 140px;">Video</th>
+                        <th style="width: 170px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in contents %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td class="fw-semibold">{{ c.title }}</td>
+                        <td>
+                            {% if c.video_url %}
+                                <span class="badge bg-success"><i class="bi bi-youtube"></i> Ada</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Tidak ada</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'content_update' c.id %}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-fill"></i></a>
+                            <a href="{% url 'content_delete' c.id %}" class="btn btn-danger btn-sm"
+                               onclick="return confirm('Yakin hapus materi ini?')"><i class="bi bi-trash-fill"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center lms-page-subtitle py-4">Belum ada materi untuk course ini</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
