@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import List, Optional
 
 from django.contrib.auth.models import User
@@ -11,7 +12,7 @@ from ninja.throttling import AnonRateThrottle, AuthRateThrottle
 from pydantic import field_validator
 
 from .api import apiAuth, mobile_auth_router
-from .models import Comment, Content, Course, Member
+from .models import Comment, Completion, Content, Course, Member
 
 apiv1 = NinjaAPI(
     throttle=[
@@ -129,6 +130,18 @@ class CourseOut(Schema):
     num_contents: int
 
 
+class CompletionIn(Schema):
+    content_id: int
+
+
+class CompletionOut(Schema):
+    id: int
+    content_id: int
+    content_title: str
+    course_title: str
+    completed_at: datetime
+
+
 # =========================
 # HELLO
 # =========================
@@ -209,6 +222,15 @@ def register(request, data: Register):
 
 
 # =========================
+# PROFILE (PROTECTED, JWT)
+# =========================
+@apiv1.get('me/', auth=apiAuth, response=UserOut)
+def myProfile(request):
+    """Menampilkan profil user yang sedang login (butuh JWT)."""
+    return get_object_or_404(User, pk=request.user.id)
+
+
+# =========================
 # COURSES (PROTECTED, JWT) - PAGINATION, FILTERING, SORTING
 # =========================
 @apiv1.get('courses/', auth=apiAuth, response=List[CourseOut])
@@ -265,6 +287,61 @@ def courseEnrollment(request, id: int):
         'user_id': member.user_id,
         'course_id': member.course.id,
         'course_title': member.course.title,
+    }
+
+
+@apiv1.delete('course/{id}/enroll/', auth=apiAuth, response={200: MessageOut, 400: MessageOut})
+def courseUnenroll(request, id: int):
+    """Membatalkan pendaftaran (unenroll) user yang login dari course tertentu (butuh JWT)."""
+    course = get_object_or_404(Course, pk=id)
+    member = Member.objects.filter(user_id=request.user.id, course=course).first()
+
+    if not member:
+        return 400, {"message": "Anda belum terdaftar di course ini"}
+
+    member.delete()
+    return 200, {"message": "Berhasil keluar dari course"}
+
+
+# =========================
+# COMPLETIONS (PROTECTED, JWT)
+# =========================
+@apiv1.get('completions/', auth=apiAuth, response=List[CompletionOut])
+def listMyCompletions(request):
+    """Menampilkan daftar content yang sudah diselesaikan oleh user yang login (butuh JWT)."""
+    completions = Completion.objects.filter(
+        member__user_id=request.user.id
+    ).select_related('content', 'content__course')
+
+    return [
+        {
+            'id': c.id,
+            'content_id': c.content_id,
+            'content_title': c.content.title,
+            'course_title': c.content.course.title,
+            'completed_at': c.completed_at,
+        }
+        for c in completions
+    ]
+
+
+@apiv1.post('completions/', auth=apiAuth, response={200: CompletionOut, 400: MessageOut})
+def markContentCompleted(request, data: CompletionIn):
+    """Menandai sebuah content sebagai selesai dipelajari, hanya untuk user yang sudah enroll di course terkait (butuh JWT)."""
+    content = get_object_or_404(Content, pk=data.content_id)
+    member = Member.objects.filter(user_id=request.user.id, course=content.course).first()
+
+    if not member:
+        return 400, {"message": "Anda belum mengikuti course dari content ini"}
+
+    completion, _ = Completion.objects.get_or_create(member=member, content=content)
+
+    return 200, {
+        'id': completion.id,
+        'content_id': completion.content_id,
+        'content_title': content.title,
+        'course_title': content.course.title,
+        'completed_at': completion.completed_at,
     }
 
 

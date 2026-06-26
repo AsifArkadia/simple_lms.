@@ -33,6 +33,8 @@ urlpatterns = [
         next_page='/login/'
     ), name='logout'),
 
+    path('register/', register_view, name='register'),
+
     # =========================
     # DASHBOARD / LANDING PAGE
     # (publik kalau belum login, dashboard kalau sudah login)

@@ -1,5 +1,8 @@
 import csv
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Min
 from django.shortcuts import render, redirect, get_object_or_404
@@ -52,6 +55,44 @@ def dashboard(request):
             'total_courses': total_courses,
             'my_courses': my_courses
         })
+
+
+# =========================
+# REGISTRASI (PUBLIK)
+# =========================
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        password2 = request.POST.get('password2', '')
+
+        error = None
+        if not username or not password:
+            error = "Username dan password wajib diisi."
+        elif password != password2:
+            error = "Konfirmasi password tidak sama."
+        elif User.objects.filter(username=username).exists():
+            error = "Username sudah digunakan."
+        else:
+            try:
+                validate_password(password)
+            except ValidationError as e:
+                error = " ".join(e.messages)
+
+        if error:
+            messages.error(request, error)
+            return render(request, 'registration/register.html', {'username': username, 'email': email})
+
+        user = User.objects.create_user(username=username, email=email, password=password)
+        auth_login(request, user)
+        messages.success(request, "Registrasi berhasil! Selamat datang di Simple LMS.")
+        return redirect('krs')
+
+    return render(request, 'registration/register.html')
 
 
 # =========================
